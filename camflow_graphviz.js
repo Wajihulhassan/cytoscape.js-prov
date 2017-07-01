@@ -20,18 +20,19 @@ var agent_s = "cirle";
 var entity_s = "square";
 var activity_s = "diamond"
 
+var final_json = "";
+var tryEdgeAgain = new Array();
+
 var map = {}
 
 process.on( "SIGINT", function() {
-	fs.writeFile("/Users/nurainiaguse/Desktop/camflow_graphviz.txt", g.to_dot(), function(err) {
-    	if(err) {
-        	return console.log(err);
-    	}
-
-    	console.log("The file was saved!");
-	}); 
-	console.log(g.to_dot())
-	//g.output( "pdf", "test01.pdf" );
+	//var dot_graph = g.to_dot()
+	dotfile.write(g.to_dot())
+	dotfile.end()
+	jsonfile.write(final_json)
+	jsonfile.end()
+	//console.log("dumping list of node ids")
+	//console.log(map)
 	console.log('CLOSING [SIGINT]');
   	process.exit();
 } );
@@ -54,6 +55,26 @@ function inflateB64(str){
 	return strData;
 }
 
+function edge_again(){
+	var edge;
+	var again = new Array();
+	while(tryEdgeAgain.length>0){
+		edge = tryEdgeAgain.pop();
+		//console.log(edge)
+		//console.log("current nodes:")
+		//console.log(map)
+		if (existNode(edge.src) && existNode(edge.dest)){
+			console.log("adding edge again")
+			var e = g.addEdge( edge.src, edge.dest );
+			e.set("label", edge.label);
+			e.set( "color", edge.color);
+		}
+		else
+			again.push(edge)
+	}
+	tryEdgeAgain = again;
+
+}
 
 /*function from online source that replaces jquery extend function*/
 function extending(a, b, c){
@@ -74,13 +95,6 @@ function existNode(node){
 }
 
 function insertNode(id, label, color, shape){
-	// if (label == "AAEAAAAAACB7mwAAAAAAAAYAAACwCbxAAAAAAAAAAAA="){
-	// 	console.log("found node")
-	// 	console.log(label)
-	// 	console.log(color)
-	// 	console.log(shape)
-	// }
-	//console.log(label)
 	if(typeof label === 'undefined')
 		label = id;
 	//if (typeof superNode === 'undefined')
@@ -180,24 +194,24 @@ function parse_agents(agents){
 }
 
 function insertEdge(src, dest, label, color, check){
-	// if (typeof check != "undefined"){
-	// 	console.log("inserting edge")
-	// 	console.log(src)
-	// 	console.log(dest)
-	// }
+
 	if (existNode(src) && existNode(dest)){
 		var e = g.addEdge( src, dest );
 		e.set("label", label);
 		e.set( "color", color);
 	}
+	else{
+		tryEdgeAgain.push({src: src, dest: dest, label: label, color: color});
+	}
+	
+	// else if (!existNode(src)){
+	// 	console.log(src + " does not exist")
+	// }
+	// else
+	// 	console.log(dest + " does not exist")
 }
 
 function parse_edges(eles, key1, key2, color, prelabel, check){
-	// if (typeof check != "undefined"){
-	// 	console.log("parsing this one")
-	// 	console.log(key1)
-	// 	console.log(key2)
-	// }
 	for(var key in eles){
 		// if(missing(fn, eles[key][key1], eles[key][key2]))
 		// 	continue;
@@ -223,11 +237,12 @@ function parse_nested_edges(eles, key1, key2, neston, nest1, nest2){
 }
 
 function parse(json){
+	final_json = final_json + json
 	try {
     var h=parseJson(json);
     //console.log(h);
 } catch (err) {
-    console.log("error");
+    console.log("error in parsing");
     throw err;
 }
 	//var data = JSON.parse(text);
@@ -245,7 +260,7 @@ function parse(json){
 	//	try nodes that could not be inserted earlier
 	//node_again();
 	//	try edges that could not be inserted earlier
-	//edge_again();
+	edge_again();
 
 	parse_edges(h.wasGeneratedBy, 'prov:entity', 'prov:activity', '#0000FF', 'wasGeneratedBy');
 
@@ -281,8 +296,8 @@ function parse(json){
 											'prov:after',
 											'prov:key-entity-set');
 
-	//console.log( g.to_dot() );
-	g.output( "pdf", "test01.pdf" );
+	//if (generate_dot)
+		g.output( "pdf", "graphviz.pdf" );
 	console.log("done");
 }
 
@@ -304,6 +319,13 @@ function onConnect() {
 	client.subscribe(TOPIC);
 }
 
+var dotfile = fs.createWriteStream('camflow_dot1.txt', {
+  flags: 'w' // 'a' means appending (old data will be preserved)
+})
+var jsonfile = fs.createWriteStream('camflow_json1.txt', {
+  flags: 'w' // 'a' means appending (old data will be preserved)
+})
+//logger.write("hello")
 
 // connect to mqtt
 client = new Paho.MQTT.Client(URL, PORT, "/", 'ws' + Math.random());
