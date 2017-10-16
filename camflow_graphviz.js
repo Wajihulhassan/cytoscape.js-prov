@@ -2,7 +2,7 @@
 const Paho = require('/Users/nurainiaguse/paho-node/mqttws31.js')
 const URL = 'm13.cloudmqtt.com'
 const PORT = 38212
-const TOPIC = 'camflow/provenance/#'
+const TOPIC = 'camflow/provenance/1871596556'
 var client;
 var util = require('util'),
 graphviz = require('graphviz');
@@ -16,7 +16,7 @@ var fs = require('fs');
 var agent_c = "blue";
 var entity_c = "red";
 var activity_c = "green"
-var agent_s = "cirle";
+var agent_s = "circle";
 var entity_s = "square";
 var activity_s = "diamond"
 
@@ -64,7 +64,6 @@ function edge_again(){
 		//console.log("current nodes:")
 		//console.log(map)
 		if (existNode(edge.src) && existNode(edge.dest)){
-			console.log("adding edge again")
 			var e = g.addEdge( edge.src, edge.dest );
 			e.set("label", edge.label);
 			e.set( "color", edge.color);
@@ -183,6 +182,9 @@ function parse_activities(activities){
 		if (activities[key]['cf:secctx'] != undefined){
 			label = label + "\n" + activities[key]['cf:secctx']
 		}
+		if (activities[key]['docker'] != undefined){
+			label = label + "\n" + activities[key]['docker']
+		}
 		insertNode(key, label, activity_c, activity_s);
 	}
 }
@@ -238,6 +240,7 @@ function parse_nested_edges(eles, key1, key2, neston, nest1, nest2){
 
 function parse(json){
 	final_json = final_json + json
+	console.log(final_json);
 	try {
     var h=parseJson(json);
     //console.log(h);
