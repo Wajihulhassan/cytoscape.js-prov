@@ -7,28 +7,44 @@ import json
 from graphviz import Digraph
 import signal
 import sys
+from pprint import pprint
 
 agent_c = "blue"
-entity_c = "red"
-activity_c = "green"
+entity_c = "khaki1"
+activity_c = "lightsteelblue1"
 agent_s = "circle"
-entity_s = "square"
-activity_s = "diamond"
+entity_s = "ellipse"
+activity_s = "box"
 map_nodes = {}
 filter_nodes = []
 tryEdgeAgain = []
-dot = Digraph('G',format='svg')
-total_json = ""
+dot = Digraph('G',format='pdf')
+dot.graph_attr.update(ratio="fill")
+dot.node_attr.update(fontname="Helvetica-Bold",style="filled,setlinewidth(5)", margin="0.1,0.1",fontsize="40")
+dot.edge_attr.update(fontname="Helvetica-Bold", fontsize="40",weight="1",penwidth="8",arrowsize="2")
+total_json = {}
+
+
+def edge_again():
+    global tryEdgeAgain
+    again = []
+    while len(tryEdgeAgain) > 0:
+	edge = tryEdgeAgain.pop()
+	if (existNode(edge['src']) and existNode(edge['dest'])):
+	    dot.edge( edge['src'][3:], edge['dest'][3:], color = edge['color'], label = edge['label'] )
+	else:
+	    again.append(edge)
+    tryEdgeAgain = again
 
 def signal_handler(signal, frame):
     print('You pressed Ctrl+C!')
-    dot.render('./provenance.svg')
+    edge_again()
+    dot.render('./provenance')
     with open('./python_camflow_graph.dot','w') as fil:
         fil.write(str(dot))
         
     with open('./python_camflow_graph.json','w') as fil:
-        fil.write(str(total_json))
-    
+        pprint(total_json,stream=fil,indent=2)
     sys.exit(0)
 
 def insertNode(key, label, color, shape):
@@ -38,7 +54,7 @@ def insertNode(key, label, color, shape):
     if(label is None):
 	label = key
     map_nodes[key] = True
-    dot.node( key[3:], color=color, shape=shape, label=label )
+    dot.node( key[3:], fillcolor=color, shape=shape, label=label )
 
 def parse_entities(entities):
     for key, dic in entities.items():
@@ -70,8 +86,6 @@ def parse_activities(activities):
 
         if (dic.get('cf:pid') is not None):
 	    label = label + "\n PID=" + str(dic['cf:pid'])
-	if (dic.get('cf:vpid') is not None ):
-	    label = label + "\n VPID=" + str(dic['cf:vpid'])
 	if (dic.get('cf:uid') is not None ):
 	    label = label + "\n UID=" + str(dic['cf:uid'])
 	if (dic.get('cf:tgid') is not None):
@@ -87,6 +101,7 @@ def existNode(node):
         return False
 
 def parse_agents(agents):
+    
     for key in agents:
 	insertNode( key, None, agent_c, agent_s)
 
@@ -111,21 +126,26 @@ def parse_nested_edges(eles, key1, key2, neston, nest1, nest2):
     for key,dic in eles.items():
 	insertEdge(dic[key1], dic[key2], '#CC00CC', 'derivedByInsertionFrom')
 
-def edge_again():
-    global tryEdgeAgain
-    again = []
-    while len(tryEdgeAgain) > 0:
-	edge = tryEdgeAgain.pop()
-	if (existNode(edge['src']) and existNode(edge['dest'])):
-	    dot.edge( edge['src'][3:], edge['src'][3:], color = edge['color'], label = edge['label'] )
-	else:
-	    again.append(edge)
-    tryEdgeAgain = again
+    
+def combineDictVal(total_json, new_json):
+    for key, value in new_json.items():
+        if key not in total_json:
+            total_json[key] = value
+        else:
+            total_json[key].update(value)
+    return total_json
 
 def parse(json_msg):
-    global total_json
-    total_json = total_json + json_msg
     parsed_json = json.loads(json_msg)
+    global total_json
+    # if (len(total_json) > 0):
+    #     total_json = parsed_json
+    # else:
+    #     total_json.update(parsed_json)
+    total_json = combineDictVal(total_json,parsed_json)
+    print("size of dictionary ", str(len(total_json)))
+    lengths = [len(v) for v in total_json.values()]
+    print(lengths)
     # TODO javascript code uses extend function here which I don't understand
     if parsed_json.get('entity') is not None:
         parse_entities(parsed_json['entity'])
@@ -142,9 +162,6 @@ def parse(json_msg):
         parse_edges(parsed_json.get('used'), 'prov:activity', 'prov:entity', '#00FF00', 'used');
 
     if parsed_json.get('wasDerivedFrom') is not None:
-        print("<<<<<<<<<")
-        print(parsed_json.get('wasDerivedFrom'))
-        print("<<<<<<<<<")
         parse_edges(parsed_json.get('wasDerivedFrom') , 'prov:generatedEntity', 'prov:usedEntity', '#FF9933', 'wasDerivedFrom', "now")
 
     if parsed_json.get('wasAttributedTo') is not None:
