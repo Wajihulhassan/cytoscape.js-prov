@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+
+# Install following packages before using this script
+# pip install graphviz mqtt
 import paho.mqtt.client as mqtt
 import base64
 import zlib
